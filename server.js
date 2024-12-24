@@ -8,13 +8,13 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Load Twilio credentials từ biến môi trường
+
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 const client = twilio(accountSid, authToken);
 
-const otpStore = {}; // Lưu OTP tạm thời {phoneNumber: otp}
+const otpStore = {}; 
 
 // Gửi OTP
 app.post('/send-otp', (req, res) => {
@@ -23,11 +23,17 @@ app.post('/send-otp', (req, res) => {
         return res.status(400).send({ message: 'Phone number is required' });
     }
 
-    // Tạo OTP ngẫu nhiên
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStore[phoneNumber] = otp; // Lưu OTP vào bộ nhớ tạm
+    const expiresAt = Date.now() + 3 * 60 * 1000; 
+    otpStore[phoneNumber] = { otp, expiresAt }; 
 
-    // Gửi OTP qua SMS
+    setTimeout(() => {
+        if (otpStore[phoneNumber] && otpStore[phoneNumber].expiresAt <= Date.now()) {
+            delete otpStore[phoneNumber];
+            console.log(`OTP for ${phoneNumber} has expired and been removed.`);
+        }
+    }, 3 * 60 * 1000);
+
     client.messages
         .create({
             body: `Your OTP code is: ${otp}`,
@@ -38,22 +44,26 @@ app.post('/send-otp', (req, res) => {
         .catch((err) => res.status(500).send({ message: err.message }));
 });
 
-// Xác thực OTP
+
 app.post('/verify-otp', (req, res) => {
     const { phoneNumber, otp } = req.body;
     if (!phoneNumber || !otp) {
         return res.status(400).send({ message: 'Phone number and OTP are required' });
     }
 
-    // Kiểm tra OTP
-    if (otpStore[phoneNumber] && otpStore[phoneNumber] === otp) {
-        delete otpStore[phoneNumber]; // Xóa OTP sau khi xác thực
+
+    if (
+        otpStore[phoneNumber] &&
+        otpStore[phoneNumber].otp === otp &&
+        otpStore[phoneNumber].expiresAt > Date.now()
+    ) {
+        delete otpStore[phoneNumber];
         return res.status(200).send({ message: 'OTP verified successfully' });
     } else {
-        return res.status(400).send({ message: 'Invalid OTP' });
+        return res.status(400).send({ message: 'Invalid or expired OTP' });
     }
 });
 
-// Khởi chạy server
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
