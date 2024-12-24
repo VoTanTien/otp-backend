@@ -43,7 +43,7 @@ app.post('/send-otp', (req, res) => {
             from: twilioPhoneNumber,
             to: phoneNumber,
         })
-        .then(() => res.status(200).send({ message: 'OTP sent successfully' }))
+        .then(() => res.status(200).send({ message: 'OTP sent successfully', success: true }))
         .catch((err) => res.status(500).send({ message: err.message }));
 });
 
@@ -65,9 +65,9 @@ app.post('/verify-otp', (req, res) => {
         otpStore[phoneNumber].expiresAt > Date.now()
     ) {
         delete otpStore[phoneNumber];
-        return res.status(200).send({ message: 'OTP verified successfully' });
+        return res.status(200).send({ message: 'OTP verified successfully', success: true });
     } else {
-        return res.status(400).send({ message: 'Invalid or expired OTP' });
+        return res.status(400).send({ message: 'Invalid or expired OTP', success: false });
     }
 });
 
