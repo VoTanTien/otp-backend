@@ -24,8 +24,11 @@ app.post('/send-otp', (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 3 * 60 * 1000; 
-    otpStore[phoneNumber] = { otp, expiresAt }; 
+    // const expiresAt = Date.now() + 3 * 60 * 1000; 
+    otpStore[phoneNumber] = {
+        otp: otp,
+        expiresAt: Date.now() + 3 * 60 * 1000, // 3 phút
+    }; 
 
     setTimeout(() => {
         if (otpStore[phoneNumber] && otpStore[phoneNumber].expiresAt <= Date.now()) {
@@ -48,10 +51,14 @@ app.post('/send-otp', (req, res) => {
 app.post('/verify-otp', (req, res) => {
     const { phoneNumber, otp } = req.body;
     if (!phoneNumber || !otp) {
+
         return res.status(400).send({ message: 'Phone number and OTP are required' });
     }
 
-
+    console.log('Stored OTP:', otpStore[phoneNumber].otp);
+    console.log('Received OTP:', otp);
+    console.log('Stored Time:', otpStore[phoneNumber].expiresAt);
+    console.log('Current Time:', Date.now());
     if (
         otpStore[phoneNumber] &&
         otpStore[phoneNumber].otp === otp &&
@@ -62,6 +69,22 @@ app.post('/verify-otp', (req, res) => {
     } else {
         return res.status(400).send({ message: 'Invalid or expired OTP' });
     }
+});
+
+const verifyPassword = (req, res, next) => {
+    const { adminPassword } = req.body;
+    const correctPassword = process.env.ADMIN_PASSWORD; 
+    if (!adminPassword || adminPassword !== correctPassword) {
+        return res.status(403).send({ message: 'Forbidden: Invalid password' });
+    }
+    next();
+};
+
+// Xóa toàn bộ OTP với bảo mật mật khẩu
+app.post('/clear-otp', verifyPassword, (req, res) => {
+    Object.keys(otpStore).forEach((key) => delete otpStore[key]);
+    console.log('All OTPs have been cleared.');
+    res.status(200).send({ message: 'All OTPs have been cleared.' });
 });
 
 
